@@ -1,4 +1,4 @@
-#!/usr/bin/bash
+#!/usr/bin/env bash
 
 # Mounts/unmounts the boot partition.
 # Does nothing if it is already mounted/unmounted.
