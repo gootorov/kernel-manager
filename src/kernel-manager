@@ -1,0 +1,118 @@
+#!/usr/bin/env bash
+
+# This script can rebuild or upgrade the kernel and the initramfs
+# depending on the passed argument.
+
+# Valid arguments are: --rebuild, --upgrade, --upgrade-hardened, or --rebuild-initramfs.
+
+# Depends on sys-kernel/genkernel[-next] for building the kernel
+# and sys-kernel/dracut for the initramfs.
+
+# It will work for you right away assuming:
+# 1) Your boot partition is /boot and is defined in /etc/fstab.
+# 2) You use sys-boot/grub as the bootloader,
+#            sys-kernel/genkernel[-next] to build the kernel,
+#            sys-kernel/dracut to build the initramfs.
+# 3) Genkernel has SAVE_CONFIG option enabled.
+# 4) Your kernel has CONFIG_IKCONFIG_PROC enabled.
+
+
+
+# Stop execution as soon as something fails
+set -o errexit # same as set -e
+# Stop execution if an undeclared variables is used
+set -o nounset # same as set -u
+# Uncomment to enable debugging
+#set -o xtrace # same as set -x
+
+if [ "$(id -u)" -ne 0 ]; then
+    echo "This script must be run by root" >&2
+    exit 1
+fi
+
+usage() {
+    echo "${0} --[rebuild|rebuild-initramfs|upgrade|upgrade-hardened]"
+    echo "Rebuild/upgrade your kernel or initramfs."
+    exit 1
+}
+
+rebuild() {
+    kconfig="/etc/kernels/kernel-config-x86_64-${kver}"
+
+    exec boot_handler --mount && cd /boot
+
+    genkernel --install --menuconfig --clean --mrproper --kernel-config="${kconfig}" --kernname=kmanager kernel
+    dracut --force --hostonly --kver "${kver}" initramfs-kmanager-x86_64-"${kver}"
+
+    cd && exec boot_handler --umount
+}
+
+rebuild-initramfs() {
+    exec boot_handler --mount && cd /boot
+
+    dracut --force --hostonly --kver "${kver}" initramfs-kmanager-x86_64-"${kver}"
+
+    cd && exec boot_handler --umount
+}
+
+upgrade() {
+    # update the kernel symlink
+    eselect kernel set linux-"${kver}"
+
+    # save current kernel configuration
+    kdir="/usr/src/linux-${kver}"
+    zcat /proc/config.gz > "${kdir}/.config"
+    kconfig="${kdir}/.config"
+
+    # upgrade kernel configuration
+    cd "${kdir}"
+    make oldconfig
+
+    # upgrade and install the new kernel
+    exec boot_handler --mount && cd /boot
+    genkernel --install --no-menuconfig --no-clean --no-mrproper --kernel-config="${kconfig}" --kernname=kmanager kernel
+
+    # generate the initramfs
+    dracut --hostonly --kver "${kver}" initramfs-kmanager-x86_64-"${kver}"
+
+    # update grub configuration
+    grub-mkconfig -o /boot/grub/grub.cfg
+    cd && exec boot_handler --umount
+
+    # rebuild out-of-tree modules
+    emerge --ask n @module-rebuild
+}
+
+while getopts ":-:" opt
+do
+    case "${opt}" in
+        -)
+            case "${OPTARG}" in
+                rebuild)
+                    source get_kernel_version --current
+                    rebuild
+                    ;;
+                upgrade)
+                    source get_kernel_version --latest
+                    upgrade
+                    exec sign_modules --latest
+                    ;;
+                upgrade-hardened)
+                    source get_kernel_version --latest-hardened
+                    upgrade
+                    exec sign_modules --latest-hardened
+                    ;;
+                rebuild-initramfs)
+                    source get_kernel_version --current
+                    rebuild-initramfs
+                    ;;
+                *)
+                    usage
+                    ;;
+            esac
+            ;;
+        *)
+            usage
+            ;;
+    esac
+done

@@ -1,0 +1,57 @@
+#!/usr/bin/env bash
+
+# Save the version of the currently used or of the
+# newly installed kernel in an environment variable.
+
+# Accepts the following arguments: --current, --latest or --latest-hardened.
+
+# An example of returned kernel version: 4.11.7-gentoo
+
+
+if [ "$(id -u)" -ne 0 ]; then
+    echo "This script must be run by root" >&2
+    exit 1
+fi
+
+usage() {
+    echo "${0} --[current|latest|latest-hardened]"
+    exit 1
+}
+
+current() {
+    export kver="$(uname -r)"
+}
+
+latest() {
+    export kver="$(eselect kernel list | tail -1 | awk '{print $2}' | cut -c7-)"
+}
+
+latest-hardened() {
+    export kver="$(eselect kernel list | grep "hardened" | tail -1 | awk '{print $2}' | cut -c7-)"
+}
+
+OPTIND=1
+while getopts ":-:" opt
+do
+    case "${opt}" in
+        -)
+            case "${OPTARG}" in
+                current)
+                    current
+                    ;;
+                latest)
+                    latest
+                    ;;
+                latest-hardened)
+                    latest-hardened
+                    ;;
+                *)
+                    usage
+                    ;;
+            esac
+            ;;
+        *)
+            usage
+            ;;
+    esac
+done
