@@ -39,20 +39,20 @@ usage() {
 rebuild() {
     kconfig="/etc/kernels/kernel-config-x86_64-${kver}"
 
-    exec boot_handler --mount && cd /boot
+    boot_handler --mount && cd /boot
 
     genkernel --install --menuconfig --clean --mrproper --kernel-config="${kconfig}" --kernname=kmanager kernel
     dracut --force --hostonly --kver "${kver}" initramfs-kmanager-x86_64-"${kver}"
 
-    cd && exec boot_handler --umount
+    cd && boot_handler --umount
 }
 
 rebuild-initramfs() {
-    exec boot_handler --mount && cd /boot
+    boot_handler --mount && cd /boot
 
     dracut --force --hostonly --kver "${kver}" initramfs-kmanager-x86_64-"${kver}"
 
-    cd && exec boot_handler --umount
+    cd && boot_handler --umount
 }
 
 upgrade() {
@@ -69,7 +69,7 @@ upgrade() {
     make oldconfig
 
     # upgrade and install the new kernel
-    exec boot_handler --mount && cd /boot
+    boot_handler --mount && cd /boot
     genkernel --install --no-menuconfig --no-clean --no-mrproper --kernel-config="${kconfig}" --kernname=kmanager kernel
 
     # generate the initramfs
@@ -77,7 +77,7 @@ upgrade() {
 
     # update grub configuration
     grub-mkconfig -o /boot/grub/grub.cfg
-    cd && exec boot_handler --umount
+    cd && boot_handler --umount
 
     # rebuild out-of-tree modules
     emerge --ask n @module-rebuild
