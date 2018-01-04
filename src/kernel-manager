@@ -72,6 +72,10 @@ upgrade() {
     boot_handler --mount && cd /boot
     genkernel --install --no-menuconfig --no-clean --no-mrproper --kernel-config="${kconfig}" --kernname=kmanager kernel
 
+    # rebuild and sign out-of-tree modules
+    emerge --ask n @module-rebuild
+    sign_modules --latest
+
     # generate the initramfs
     dracut --hostonly --kver "${kver}" initramfs-kmanager-x86_64-"${kver}"
 
@@ -79,8 +83,6 @@ upgrade() {
     grub-mkconfig -o /boot/grub/grub.cfg
     cd && boot_handler --umount
 
-    # rebuild out-of-tree modules
-    emerge --ask n @module-rebuild
 }
 
 while getopts ":-:" opt
@@ -95,7 +97,6 @@ do
                 upgrade)
                     source get_kernel_version --latest
                     upgrade
-                    exec sign_modules --latest
                     ;;
                 upgrade-hardened)
                     source get_kernel_version --latest-hardened
