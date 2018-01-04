@@ -3,7 +3,7 @@
 # Save the version of the currently used or of the
 # newly installed kernel in an environment variable.
 
-# Accepts the following arguments: --current, --latest or --latest-hardened.
+# Accepts the following arguments: --current or --latest.
 
 # An example of returned kernel version: 4.11.7-gentoo
 
@@ -26,10 +26,6 @@ latest() {
     export kver="$(eselect kernel list | tail -1 | awk '{print $2}' | cut -c7-)"
 }
 
-latest-hardened() {
-    export kver="$(eselect kernel list | grep "hardened" | tail -1 | awk '{print $2}' | cut -c7-)"
-}
-
 OPTIND=1
 while getopts ":-:" opt
 do
@@ -41,9 +37,6 @@ do
                     ;;
                 latest)
                     latest
-                    ;;
-                latest-hardened)
-                    latest-hardened
                     ;;
                 *)
                     usage
