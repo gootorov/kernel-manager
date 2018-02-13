@@ -1,29 +1,11 @@
 #!/usr/bin/env bash
 
-# This script can rebuild or upgrade the kernel and the initramfs
-# depending on the passed argument.
-
-# Valid arguments are: --rebuild, --upgrade, or --rebuild-initramfs.
-
-# Depends on sys-kernel/genkernel[-next] for building the kernel
-# and sys-kernel/dracut for the initramfs.
-
-# It will work for you right away assuming:
-# 1) Your boot partition is /boot and is defined in /etc/fstab.
-# 2) You use sys-boot/grub as the bootloader,
-#            sys-kernel/genkernel[-next] to build the kernel,
-#            sys-kernel/dracut to build the initramfs.
-# 3) Genkernel has SAVE_CONFIG option enabled.
-# 4) Your kernel has CONFIG_IKCONFIG_PROC enabled.
-
-
-
 # Stop execution as soon as something fails
-set -o errexit # same as set -e
+set -o errexit
 # Stop execution if an undeclared variables is used
-set -o nounset # same as set -u
+set -o nounset
 # Uncomment to enable debugging
-#set -o xtrace # same as set -x
+#set -o xtrace
 
 if [ "$(id -u)" -ne 0 ]; then
     echo "This script must be run by root" >&2
