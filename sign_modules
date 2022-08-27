@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+
+# Sign out-of-tree kernel modules.
+
+if [ "$(id -u)" -ne 0 ]; then
+    echo "This script must be run by root" >&2
+    exit 1
+fi
+
+source get_kernel_version $1
+
+src="/usr/src/linux-${kver}"
+target="/lib/modules/${kver}-x86_64"
+
+modules=( "misc/vboxdrv.ko" "misc/vboxnetadp.ko" "misc/vboxnetflt.ko" "misc/vboxpci.ko" "video/nvidia-drm.ko" "video/nvidia.ko" "video/nvidia-modeset.ko" )
+for module in ${modules[@]}
+do
+    ${src}/scripts/sign-file sha512 ${src}/certs/signing_key.pem ${src}/certs/signing_key.x509 ${target}/${module}
+done

@@ -1,0 +1,100 @@
+#!/usr/bin/env bash
+
+# Stop execution as soon as something fails
+set -o errexit
+# Stop execution if an undeclared variables is used
+set -o nounset
+# Uncomment to enable debugging
+#set -o xtrace
+
+if [ "$(id -u)" -ne 0 ]; then
+    echo "This script must be run by root" >&2
+    exit 1
+fi
+
+usage() {
+    echo "${0} --[rebuild|rebuild-initramfs|upgrade]"
+    echo "Rebuild/upgrade your kernel or initramfs."
+    exit 1
+}
+
+rebuild() {
+    kconfig="/etc/kernels/kernel-config-${kver}"
+
+    boot_handler --mount && cd /boot
+
+    genkernel --install --menuconfig --clean --mrproper --kernel-config="${kconfig}" --kernel-filename=kernel-kmanager-"${kver}" kernel
+    dracut --force --hostonly --kver "${kver}" initramfs-kmanager-"${kver}"
+
+    cd && boot_handler --umount
+}
+
+rebuild-initramfs() {
+    boot_handler --mount && cd /boot
+
+    dracut --force --hostonly --kver "${kver}" initramfs-kmanager-x86_64-"${kver}"
+
+    cd && boot_handler --umount
+}
+
+upgrade() {
+    # update the kernel symlink
+    eselect kernel set linux-"${kver}"
+
+    # save current kernel configuration
+    kdir="/usr/src/linux-${kver}"
+    zcat /proc/config.gz > "${kdir}/.config"
+    kconfig="${kdir}/.config"
+
+    # upgrade kernel configuration
+    cd "${kdir}"
+    make oldconfig
+
+    # upgrade and install the new kernel
+    boot_handler --mount && cd /boot
+    genkernel --install --no-menuconfig --no-clean --no-mrproper --kernel-config="${kconfig}" --kernel-filename=kmanager kernel
+
+    # rebuild and sign out-of-tree modules
+    emerge --ask n @module-rebuild
+    sign_modules --latest
+
+    # generate the initramfs
+    dracut --hostonly --kver "${kver}" initramfs-kmanager-x86_64-"${kver}"
+
+    # update grub configuration
+    grub-mkconfig -o /boot/grub/grub.cfg
+    cd && boot_handler --umount
+
+}
+
+while getopts ":-:" opt
+do
+    case "${opt}" in
+        -)
+            case "${OPTARG}" in
+                rebuild)
+                    source get_kernel_version --current
+                    rebuild
+                    ;;
+                upgrade)
+                    source get_kernel_version --latest
+                    upgrade
+                    ;;
+                rebuild-initramfs)
+                    source get_kernel_version --current
+                    rebuild-initramfs
+                    ;;
+                rebuild-initramfs-latest)
+                    source get_kernel_version --latest
+                    rebuild-initramfs
+                    ;;
+                *)
+                    usage
+                    ;;
+            esac
+            ;;
+        *)
+            usage
+            ;;
+    esac
+done
